@@ -6,7 +6,7 @@ from pathlib import Path
 
 from flask import Flask, redirect, render_template, request, url_for
 
-new_App = Flask(__name__)
+app = Flask(__name__)
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "smart_city.db"
@@ -36,7 +36,7 @@ WASTE_ITEMS = [
     ("Broken Ceramic Cup", "Landfill"),
     ("Cardboard Box", "Recycle"),
     ("Tea Leaves", "Organic"),
-    ("Candy Wrnew_Apper", "Landfill"),
+    ("Candy Wrapper", "Landfill"),
 ]
 
 EMPTY_BIN_LOCATIONS = ["Eco Park Gate 2", "Metro Plaza North Exit", "Market Square Service Lane",
@@ -84,32 +84,32 @@ def analyze_water_quality(ph, oxygen, turbidity):
     if ph < 6.5 or ph > 8.5:
         status = "Danger"
         recommendations += ["Neutralisation: acid/base balancing", "pH correction"]
-        alerts.new_Append("Dangerous pH detected in water sample")
+        alerts.append("Dangerous pH detected in water sample")
 
     if oxygen < 5:
         if status != "Danger":
             status = "Warning"
         recommendations += ["Increase aeration", "Biological treatment: beneficial bacteria systems",
                             "Wetland filtration"]
-        alerts.new_Append("Low dissolved oxygen can harm aquatic life")
+        alerts.append("Low dissolved oxygen can harm aquatic life")
 
     if turbidity > 70:
         if status == "Safe":
             status = "Warning"
         recommendations += ["Activated carbon filtration", "Membrane filtration"]
-        alerts.new_Append("High turbidity detected")
+        alerts.append("High turbidity detected")
 
     if oxygen < 5 and turbidity > 65:
         status = "Danger"
         algae_risk = "High"
         recommendations += ["Cyanobacteria control: TiO2 Photo-catalysis", "Nutrient reduction", "Oxygenation systems",
                             "Advanced Oxidation Process: ozone treatment"]
-        alerts.new_Append("Possible cyanobacteria bloom risk")
+        alerts.append("Possible cyanobacteria bloom risk")
     elif oxygen < 6 or turbidity > 50:
         algae_risk = "Moderate"
 
     if not recommendations:
-        recommendations.new_Append("Continue routine monitoring and nutrient control")
+        recommendations.append("Continue routine monitoring and nutrient control")
 
     recommendations = list(dict.fromkeys(recommendations))
     priority = "High" if status == "Danger" else "Medium" if status == "Warning" else "Low"
@@ -183,11 +183,11 @@ def map_status(selected_name=None):
         water_alert = ""
         if district["name"] in {"Eco Park", "Water Works"} and pollution > 70:
             water_alert = f"Water contamination reported near {district['name']}"
-            alerts.new_Append(water_alert)
-        districts.new_Append({**district, "pollution": pollution, "crime": crime, "footfall": footfall,
+            alerts.append(water_alert)
+        districts.append({**district, "pollution": pollution, "crime": crime, "footfall": footfall,
                           "signal": random.randint(86, 100), "water_alert": water_alert})
     if random.random() > 0.55:
-        alerts.new_Append("Possible cyanobacteria bloom risk in Eco Park pond")
+        alerts.append("Possible cyanobacteria bloom risk in Eco Park pond")
     selected = next((d for d in districts if d["name"] == selected_name), districts[0])
     return districts, selected, alerts
 
@@ -204,7 +204,7 @@ def recent_water_quality():
         return [dict(row) for row in conn.execute("SELECT * FROM water_quality ORDER BY id DESC LIMIT 6").fetchall()]
 
 
-@new_App.route("/")
+@app.route("/")
 def home():
     zoom = int(request.args.get("zoom", 100))
     zoom = max(70, min(160, zoom))
@@ -235,7 +235,7 @@ def home():
     )
 
 
-@new_App.post("/complaint")
+@app.post("/complaint")
 def complaint():
     complaint_type = request.form.get("complaint_type", "")
     location = request.form.get("location", "").strip()
@@ -249,7 +249,7 @@ def complaint():
     return redirect(url_for("home", message="Please complete the complaint form"))
 
 
-@new_App.post("/water-quality")
+@app.post("/water-quality")
 def water_quality():
     location = request.form.get("location", "Eco Park pond")
     ph = float(request.form.get("ph", 7.0))
@@ -265,7 +265,7 @@ def water_quality():
                            turbidity=turbidity, history=recent_water_quality())
 
 
-@new_App.post("/sort-waste")
+@app.post("/sort-waste")
 def sort_waste():
     item = request.form.get("item", "Waste item")
     correct = request.form.get("correct", "Recycle")
@@ -277,7 +277,7 @@ def sort_waste():
     return redirect(url_for("home", message=message))
 
 
-@new_App.post("/carbon")
+@app.post("/carbon")
 def carbon():
     travel = float(request.form.get("travel", 12))
     power = float(request.form.get("power", 8))
@@ -286,7 +286,7 @@ def carbon():
     return redirect(url_for("home", message=f"Estimated daily footprint: {total} kg CO2e"))
 
 
-@new_App.post("/sos")
+@app.post("/sos")
 def sos():
     return redirect(
         url_for("home", message="Demo SOS sent: nearby police station and city control room have been alerted"))
@@ -295,4 +295,4 @@ def sos():
 init_db()
 
 if __name__ == "__main__":
-    new_App.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8010)), debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8010)), debug=True)
