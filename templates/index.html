@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Environmental City Platform</title>
+
+  <!-- Main stylesheet for the whole website. No JavaScript file is used. -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <!--
+      Sidebar navigation:
+      These are normal HTML anchor links that jump to page sections.
+    -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">SC</div>
+        <h1>Smart Environmental City Platform</h1>
+        <p>Built with Python, HTML, CSS and SQLite.</p>
+      </div>
+
+      <nav class="nav">
+        <a href="#overview">Overview</a>
+        <a href="#map">City Map</a>
+        <a href="#air">Air</a>
+        <a href="#water-quality">Water Quality</a>
+        <a href="#waste">Waste</a>
+        <a href="#games">Games</a>
+        <a href="#complaints">Complaints</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <!--
+        Top section:
+        The reset and SOS controls are HTML forms.
+        When submitted, Flask handles them in app.py.
+      -->
+      <section class="topbar" id="overview">
+        <div>
+          <div class="kicker">Live smart-city dashboard</div>
+          <h2>Environmental intelligence for safer, cleaner cities</h2>
+        </div>
+
+        <div class="top-actions">
+          <form method="post" action="{{ url_for('reset_dashboard') }}">
+            <button class="secondary">Reset Dashboard Readings</button>
+          </form>
+
+          <form method="post" action="{{ url_for('sos') }}">
+            <button class="danger">SOS / Call Police</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Flask shows success/error messages here after form submissions. -->
+      {% if message %}
+        <div class="notice">{{ message }}</div>
+      {% endif %}
+
+      <!--
+        Reset explanation:
+        Pressing reset reloads the page and makes Python generate new
+        random readings for AQI, water, waste, map data, alerts, and cards.
+      -->
+      <section class="panel reading-reset">
+        <div>
+          <h3>Reset Dashboard Readings</h3>
+          <p>
+            Last reading cycle: {{ reset_time }}. Use reset to refresh the
+            simulated pollution level, water quality values, smart waste fill
+            percentage, map alerts, and dashboard cards.
+          </p>
+        </div>
+
+        <form method="post" action="{{ url_for('reset_dashboard') }}">
+          <button>Reset All Readings</button>
+        </form>
+      </section>
+
+      <!--
+        Map area:
+        The SVG is drawn directly in HTML.
+        Zoom is controlled with Flask URL parameters, not JavaScript.
+      -->
+      <section class="hero-grid">
+        <article class="panel map-card" id="map">
+          <div class="map-toolbar">
+            <div>
+              <h3>Zoomable Satellite City Grid</h3>
+              <p>
+                Zoom is handled by Python links, and district selection reloads
+                the page with fresh simulated data.
+              </p>
+            </div>
+
+            <div class="map-tools">
+              <a class="button" href="{{ url_for('home', zoom=zoom+15, district=selected.name) }}#map">Zoom +</a>
+              <a class="button" href="{{ url_for('home', zoom=zoom-15, district=selected.name) }}#map">Zoom -</a>
+              <a class="button" href="{{ url_for('home', zoom=100, district=selected.name) }}#map">Reset</a>
+              <span class="chip">{{ zoom }}%</span>
+            </div>
+          </div>
+
+          <div class="map-viewport">
+            <svg
+              class="map-canvas"
+              style="width:{{ 980 * zoom / 100 }}px;height:{{ 620 * zoom / 100 }}px"
+              viewBox="0 0 980 620"
+              role="img"
+              aria-label="Detailed simulated city map"
+            >
+              <!-- Grid pattern and river color used in the SVG map. -->
+              <defs>
+                <pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse">
+                  <path d="M 42 0 L 0 0 0 42" fill="none" stroke="#183140" stroke-width="1"/>
+                </pattern>
+                <linearGradient id="water" x1="0" x2="1">
+                  <stop stop-color="#123c55"/>
+                  <stop offset="1" stop-color="#1f7d78"/>
+                </linearGradient>
+              </defs>
+
+              <!-- Map background, river, roads, and dashed lane lines. -->
+              <rect width="980" height="620" fill="#0a1721"/>
+              <rect width="980" height="620" fill="url(#grid)"/>
+              <rect x="0" y="458" width="980" height="84" fill="url(#water)" opacity=".85"/>
+              <text x="24" y="507" fill="#b6f5ff" font-size="18" font-weight="800">Smart River Waterway</text>
+
+              <g stroke="#607485" stroke-width="22" stroke-linecap="round" fill="none">
+                <path d="M10 150 H920 V520 H90 V70 H790"/>
+                <path d="M940 260 H650 V80 H260 V560"/>
+                <path d="M40 350 H360 V215 H790"/>
+                <path d="M80 500 C250 390 330 360 500 380 S770 450 920 330"/>
+              </g>
+
+              <g stroke="#d4e2eb" stroke-width="3" stroke-dasharray="14 16" stroke-linecap="round" fill="none">
+                <path d="M10 150 H920 V520 H90 V70 H790"/>
+                <path d="M940 260 H650 V80 H260 V560"/>
+                <path d="M40 350 H360 V215 H790"/>
+                <path d="M80 500 C250 390 330 360 500 380 S770 450 920 330"/>
+              </g>
+
+              <!-- District markers are generated from CITY_DISTRICTS in app.py. -->
+              {% for district in districts %}
+                <a href="{{ url_for('home', zoom=zoom, district=district.name) }}#map">
+                  <g
+                    class="map-node {% if district.name == selected.name %}active{% endif %}"
+                    transform="translate({{ district.x }} {{ district.y }})"
+                  >
+                    <rect x="-58" y="-34" width="116" height="68" rx="8" fill="{{ district.color }}" opacity=".92" stroke="#d8f3ff"/>
+                    <circle
+                      cx="0"
+                      cy="-43"
+                      r="13"
+                      fill="{% if district.pollution > 70 %}#f05d5e{% elif district.pollution > 45 %}#f2b84b{% else %}#2ed47a{% endif %}"
+                    />
+                    <text y="-3" text-anchor="middle" fill="#eff7fb" font-size="15" font-weight="800">{{ district.name }}</text>
+                    <text y="18" text-anchor="middle" fill="#bdd2dd" font-size="12">{{ district.kind }}</text>
+                  </g>
+                </a>
+              {% endfor %}
+            </svg>
+          </div>
+        </article>
+
+        <!-- Details for the selected map district. -->
+        <article class="panel">
+          <h3>{{ selected.name }}</h3>
+          <p>{{ selected.kind }}</p>
+
+          <ul class="data-list">
+            <li>Pollution: {{ selected.pollution }}%</li>
+            <li>Crime likelihood: {{ selected.crime }}%</li>
+            <li>Footfall: {{ selected.footfall }}%</li>
+            <li>Signal: {{ selected.signal }}%</li>
+            {% if selected.water_alert %}
+              <li>{{ selected.water_alert }}</li>
+            {% endif %}
+          </ul>
+
+          <h3>Environmental Alerts</h3>
+          <ul class="data-list">
+            {% for alert in alerts %}
+              <li>{{ alert }}</li>
+            {% else %}
+              <li>No critical environmental alerts in this scan.</li>
+            {% endfor %}
+          </ul>
+        </article>
+      </section>
+
+      <!-- Main dashboard cards. Values come from city_status() in app.py. -->
+      <section class="metrics">
+        <div class="metric"><label>Air Quality</label><strong>{{ status.air_level }}</strong></div>
+        <div class="metric"><label>Traffic</label><strong>{{ status.traffic }}%</strong></div>
+        <div class="metric"><label>Water Quality</label><strong>{{ status.water_quality }}%</strong></div>
+        <div class="metric"><label>Algae Risk</label><strong>{{ status.algae_risk }}</strong></div>
+        <div class="metric"><label>Pond Health</label><strong>{{ status.pond_health }}%</strong></div>
+      </section>
+
+      <!-- Air pollution and waste readings. -->
+      <section class="modules">
+        <article class="module" id="air">
+          <div class="module-header">
+            <h3>Pollution Level Indicator</h3>
+            <span class="badge {{ status.air_class }}">{{ status.air_level }}</span>
+          </div>
+
+          <div class="big-number">AQI {{ status.aqi }}</div>
+          <ul class="data-list">
+            {% for item in status.air_advice %}
+              <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+
+          <form method="post" action="{{ url_for('reset_dashboard') }}">
+            <button class="secondary">Reset Pollution Reading</button>
+          </form>
+        </article>
+
+        <article class="module" id="waste">
+          <div class="module-header">
+            <h3>Smart Waste Management</h3>
+            <span class="badge green">SDG 11</span>
+          </div>
+
+          <div class="big-number">{{ waste.fill }}%</div>
+          <p>{{ waste.status }}</p>
+          <p><strong>Nearest empty bin:</strong> {{ waste.nearest_empty_bin }}</p>
+          <p><strong>Collection ETA:</strong> {{ waste.collection_eta }}</p>
+
+          <form method="post" action="{{ url_for('reset_dashboard') }}">
+            <button class="secondary">Reset Waste Reading</button>
+          </form>
+        </article>
+      </section>
+
+      <!--
+        Water quality section:
+        Left side is manual input. Right side is a random live dashboard reading.
+      -->
+      <section class="module" id="water-quality">
+        <div class="module-header">
+          <h3>Water Quality & Eutrophication Monitoring</h3>
+          <span class="badge blue">Pond intelligence</span>
+        </div>
+
+        <div class="split">
+          <form method="post" action="{{ url_for('water_quality') }}">
+            <label>Water body</label>
+            <input name="location" value="Eco Park pond">
+
+            <label>pH level</label>
+            <input name="ph" type="number" step="0.1" value="7.2">
+
+            <label>Dissolved oxygen mg/L</label>
+            <input name="oxygen" type="number" step="0.1" value="6.5">
+
+            <label>Turbidity NTU</label>
+            <input name="turbidity" type="number" step="1" value="35">
+
+            <button>Analyze Water Quality</button>
+          </form>
+
+          <div>
+            <h3>Live Water Dashboard Reading</h3>
+            <ul class="data-list">
+              <li>Status: {{ status.water_dashboard.status }}</li>
+              <li>pH: {{ status.water_dashboard.ph }}</li>
+              <li>Dissolved oxygen: {{ status.water_dashboard.oxygen }} mg/L</li>
+              <li>Turbidity: {{ status.water_dashboard.turbidity }} NTU</li>
+              <li>Algae risk: {{ status.water_dashboard.algae_risk }}</li>
+              {% for item in status.water_dashboard.recommendations %}
+                <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+
+            <form method="post" action="{{ url_for('reset_dashboard') }}">
+              <button class="secondary">Reset Water Reading</button>
+            </form>
+
+            <h3>Treatment Library</h3>
+            <ul class="data-list">
+              <li>Neutralisation: acid/base balancing and pH correction</li>
+              <li>Advanced Oxidation Process: ozone and hydrogen peroxide treatment</li>
+              <li>Biological treatment: duckweed, beneficial bacteria, wetland filtration</li>
+              <li>Filtration: activated carbon and membrane filtration</li>
+              <li>Cyanobacteria control: TiO2 photocatalysis, nutrient reduction, oxygenation</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mini games and learning tools. -->
+      <section class="module" id="games">
+        <div class="module-header">
+          <h3>Randomizers and Learning Games</h3>
+          <span class="badge">Python forms</span>
+        </div>
+
+        <div class="game-grid">
+          <article class="panel">
+            <h3>Waste Sorting Challenge</h3>
+            <p>Sort this: <strong>{{ current_item }}</strong></p>
+
+            <form method="post" action="{{ url_for('sort_waste') }}">
+              <input type="hidden" name="item" value="{{ current_item }}">
+              <input type="hidden" name="correct" value="{{ correct_bin }}">
+              <div class="choice-row">
+                <button name="choice" value="Recycle">Recycle</button>
+                <button name="choice" value="Organic">Organic</button>
+                <button name="choice" value="Landfill">Landfill</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panel">
+            <h3>Carbon Calculator</h3>
+            <form method="post" action="{{ url_for('carbon') }}">
+              <label>Daily travel km</label>
+              <input name="travel" type="number" value="12">
+
+              <label>Electricity units</label>
+              <input name="power" type="number" value="8">
+
+              <label>Meat meals per week</label>
+              <input name="meals" type="number" value="3">
+
+              <button>Calculate</button>
+            </form>
+          </article>
+
+          <article class="panel">
+            <h3>Random City Values</h3>
+            <ul class="data-list">
+              <li>City joy score: {{ status.joy }}</li>
+              <li>Smart trucks active: {{ status.trucks }}</li>
+              <li>Citizens moving: {{ status.citizens }}</li>
+              <li>Solar output: {{ status.solar }}%</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <!-- Citizen complaint form and recent SQLite records. -->
+      <section class="module" id="complaints">
+        <div class="module-header">
+          <h3>Citizen Complaint Portal</h3>
+          <span class="badge">SQLite database</span>
+        </div>
+
+        <div class="split">
+          <form method="post" action="{{ url_for('complaint') }}">
+            <label>Report type</label>
+            <select name="complaint_type">
+              {% for key, label in complaint_types.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+
+            <label>Location</label>
+            <input name="location" placeholder="Example: Eco Park pond">
+
+            <label>Details</label>
+            <textarea name="details" placeholder="Describe what happened"></textarea>
+
+            <button>Submit Report</button>
+          </form>
+
+          <div>
+            <h3>Recent Reports</h3>
+            <div class="reports">
+              {% for report in complaints %}
+                <div class="report">
+                  <strong>#{{ report.id }} {{ report.type_label }}</strong>
+                  <span>{{ report.location }} - {{ report.created_at }}</span>
+                  <span>{{ report.details }}</span>
+                </div>
+              {% else %}
+                <div class="report">
+                  <strong>No reports yet</strong>
+                  <span>Submit the first issue.</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
