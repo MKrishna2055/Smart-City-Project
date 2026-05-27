@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 # HOME PAGE
 @app.route("/")
-def homepage_setup():
+def homepage():
     return render_template("index.html")
 
 
@@ -29,7 +29,8 @@ def save_location():
     latitude = data.get("latitude")
     longitude = data.get("longitude")
 
-    print(latitude, longitude)
+    print("Latitude:", latitude)
+    print("Longitude:", longitude)
 
     return jsonify({
         "status": "success"
