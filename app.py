@@ -4,15 +4,46 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, render_template, request, jsonify
 
-
-# -----------------------------------------------------------------------------
-# Flask app setup
-# -----------------------------------------------------------------------------
-# Flask is the Python web framework that serves the HTML pages.
-# This project uses Python + HTML + CSS + SQLite. No JavaScript is required.
 app = Flask(__name__)
+
+# EXISTING ROUTES
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+# =========================
+# ADD THIS NEW MAP ROUTE
+# =========================
+
+@app.route("/map")
+def map_page():
+    return render_template("map.html")
+
+
+@app.route("/save_location", methods=["POST"])
+def save_location():
+
+    data = request.get_json()
+
+    latitude = data.get("latitude")
+    longitude = data.get("longitude")
+
+    print(f"Latitude: {latitude}")
+    print(f"Longitude: {longitude}")
+
+    return jsonify({
+        "status": "success",
+        "latitude": latitude,
+        "longitude": longitude
+    })
+
+
+# KEEP THIS AT THE VERY END
+if __name__ == "__main__":
+    app.run(debug=True)
 
 
 # -----------------------------------------------------------------------------
