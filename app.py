@@ -4,43 +4,14 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
 # HOME PAGE
 @app.route("/")
 def home():
-    """Render the main dashboard page."""
-    # Zoom is controlled by links in the HTML, not by JavaScript.
-    zoom = int(request.args.get("zoom", 100))
-    zoom = max(70, min(160, zoom))
-
-    selected_district = request.args.get("district")
-    status = city_status()
-    districts, selected, alerts = map_status(selected_district)
-    waste = waste_status()
-    current_item, correct_bin = random.choice(WASTE_ITEMS)
-
-    message = request.args.get("message", "")
-    reset_time = datetime.now().strftime("%d %b %Y, %I:%M %p")
-
-    return render_template(
-        "index.html",
-        complaint_types=COMPLAINT_TYPES,
-        status=status,
-        districts=districts,
-        selected=selected,
-        alerts=alerts,
-        waste=waste,
-        complaints=recent_complaints(),
-        water_history=recent_water_quality(),
-        current_item=current_item,
-        correct_bin=correct_bin,
-        zoom=zoom,
-        message=message,
-        reset_time=reset_time,
-    )
+    return render_template("index.html")
 
 
 # MAP PAGE
@@ -57,14 +28,19 @@ def save_location():
 
     latitude = data.get("latitude")
     longitude = data.get("longitude")
+    title = data.get("title")
 
     print("Latitude:", latitude)
     print("Longitude:", longitude)
+    print("Title:", title)
 
     return jsonify({
         "status": "success"
     })
 
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 # -----------------------------------------------------------------------------
 # File and database paths
