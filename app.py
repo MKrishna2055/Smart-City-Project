@@ -20,7 +20,7 @@ def map_page():
     return render_template("map.html")
 
 
-# RECEIVE CLICKED LOCATION
+# SAVE LOCATION
 @app.route("/save_location", methods=["POST"])
 def save_location():
 
@@ -29,20 +29,15 @@ def save_location():
     latitude = data.get("latitude")
     longitude = data.get("longitude")
 
-    print("Latitude:", latitude)
-    print("Longitude:", longitude)
+    print(latitude, longitude)
 
     return jsonify({
-        "status": "success",
-        "latitude": latitude,
-        "longitude": longitude
+        "status": "success"
     })
 
 
-# RUN APP
 if __name__ == "__main__":
     app.run(debug=True)
-
 # -----------------------------------------------------------------------------
 # File and database paths
 # -----------------------------------------------------------------------------
