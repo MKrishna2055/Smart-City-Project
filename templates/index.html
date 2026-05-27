@@ -95,11 +95,11 @@
                 the page with fresh simulated data.
               </p>
             </div>
-
             <div class="map-tools">
-              <a class="button" href="{{ url_for('home', zoom=zoom+15, district=selected.name) }}#map">Zoom +</a>
-              <a class="button" href="{{ url_for('home', zoom=zoom-15, district=selected.name) }}#map">Zoom -</a>
-              <a class="button" href="{{ url_for('home', zoom=100, district=selected.name) }}#map">Reset</a>
+            <a class="button" href="#map">Zoom +</a>
+            <a class="button" href="#map">Zoom -</a>
+            <a class="button" href="#map">Reset</a>
+            </div>
               <span class="chip">{{ zoom }}%</span>
             </div>
           </div>
