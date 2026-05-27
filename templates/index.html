@@ -1,64 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Smart City Dashboard</title>
 
     <!-- LEAFLET CSS -->
     <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 
     <style>
 
-        body{
+        *{
             margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+
+        body{
             font-family:Arial, sans-serif;
             background:#0f172a;
             color:white;
         }
 
         .navbar{
+            width:100%;
             background:#111827;
             padding:20px;
             text-align:center;
             font-size:28px;
             font-weight:bold;
             color:#38bdf8;
+            box-shadow:0 2px 10px rgba(0,0,0,0.4);
         }
 
         .container{
             width:90%;
             margin:auto;
-            padding:20px;
+            padding:30px 0;
         }
 
         .card{
             background:#1e293b;
-            padding:20px;
-            border-radius:15px;
-            margin-bottom:20px;
+            padding:25px;
+            border-radius:20px;
+            margin-bottom:25px;
+            box-shadow:0 0 15px rgba(0,0,0,0.3);
         }
 
         h2{
+            margin-bottom:15px;
             color:#38bdf8;
         }
 
-        /* MAP STYLE */
-        #map{
-            width:100%;
-            height:650px;
-            border-radius:20px;
-            margin-top:20px;
-            overflow:hidden;
-            box-shadow:0 0 20px rgba(0,0,0,0.4);
+        p{
+            line-height:1.6;
         }
 
+        /* MAP TOOLS */
+
+        .map-tools{
+            display:flex;
+            gap:10px;
+            margin-bottom:20px;
+            flex-wrap:wrap;
+        }
+
+        .button{
+            padding:12px 20px;
+            border:none;
+            border-radius:12px;
+            background:#38bdf8;
+            color:white;
+            font-size:16px;
+            cursor:pointer;
+            transition:0.3s;
+        }
+
+        .button:hover{
+            background:#0ea5e9;
+        }
+
+        /* INFO BOX */
+
         .info-box{
-            margin-top:20px;
+            background:#0f172a;
             padding:15px;
-            background:#1e293b;
             border-radius:15px;
+            margin-bottom:20px;
+            border:1px solid #334155;
         }
 
         .coords{
@@ -66,42 +99,103 @@
             font-weight:bold;
         }
 
+        /* MAP */
+
+        #map{
+            width:100%;
+            height:650px;
+            border-radius:20px;
+            overflow:hidden;
+        }
+
+        /* RESPONSIVE */
+
+        @media(max-width:768px){
+
+            .navbar{
+                font-size:22px;
+            }
+
+            #map{
+                height:500px;
+            }
+
+        }
+
     </style>
+
 </head>
 
 <body>
 
     <!-- NAVBAR -->
+
     <div class="navbar">
         Smart City Dashboard
     </div>
 
+    <!-- MAIN CONTENT -->
+
     <div class="container">
 
-        <!-- EXISTING CONTENT -->
+        <!-- CARD -->
+
         <div class="card">
-            <h2>Welcome</h2>
+
+            <h2>Welcome to Smart City Monitoring System</h2>
+
             <p>
-                Smart City Monitoring System with Real-Time Interactive Map.
+                This dashboard provides real-time interactive mapping,
+                location monitoring, smart city analytics,
+                and live geographic interaction using OpenStreetMap.
             </p>
+
         </div>
 
-        <!-- MAP SECTION -->
+        <!-- MAP CARD -->
+
         <div class="card">
 
-            <h2>World Interactive Map</h2>
+            <h2>Interactive World Map</h2>
+
+            <!-- MAP BUTTONS -->
+
+            <div class="map-tools">
+
+                <button class="button" onclick="map.zoomIn()">
+                    Zoom +
+                </button>
+
+                <button class="button" onclick="map.zoomOut()">
+                    Zoom -
+                </button>
+
+                <button class="button" onclick="map.setView([20,0], 2)">
+                    Reset
+                </button>
+
+            </div>
+
+            <!-- COORDINATES -->
 
             <div class="info-box">
-                Latitude:
-                <span id="lat" class="coords">--</span>
 
-                <br><br>
+                <p>
+                    Latitude:
+                    <span id="lat" class="coords">--</span>
+                </p>
 
-                Longitude:
-                <span id="lng" class="coords">--</span>
+                <br>
+
+                <p>
+                    Longitude:
+                    <span id="lng" class="coords">--</span>
+                </p>
+
             </div>
 
             <!-- MAP -->
+
             <div id="map"></div>
 
         </div>
@@ -109,37 +203,46 @@
     </div>
 
     <!-- LEAFLET JS -->
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
     <script>
 
         // CREATE MAP
+
         const map = L.map('map').setView([20, 0], 2);
 
-        // ADD OPENSTREETMAP TILES
+        // OPENSTREETMAP TILE LAYER
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
             attribution: '© OpenStreetMap contributors',
             maxZoom: 19
+
         }).addTo(map);
 
         let marker;
 
-        // CLICK EVENT
+        // MAP CLICK EVENT
+
         map.on('click', function(e){
 
             const lat = e.latlng.lat;
             const lng = e.latlng.lng;
 
-            // DISPLAY COORDINATES
+            // UPDATE COORDINATES
+
             document.getElementById("lat").innerText = lat.toFixed(6);
             document.getElementById("lng").innerText = lng.toFixed(6);
 
-            // REMOVE OLD MARKER
+            // REMOVE PREVIOUS MARKER
+
             if(marker){
                 map.removeLayer(marker);
             }
 
-            // ADD NEW MARKER
+            // CREATE NEW MARKER
+
             marker = L.marker([lat, lng], {
                 draggable:true
             }).addTo(map);
@@ -150,7 +253,8 @@
                 Longitude: ${lng.toFixed(5)}
             `).openPopup();
 
-            // SEND TO FLASK BACKEND
+            // SEND DATA TO FLASK BACKEND
+
             fetch('/save_location', {
 
                 method:'POST',
@@ -160,9 +264,11 @@
                 },
 
                 body: JSON.stringify({
+
                     latitude:lat,
                     longitude:lng,
                     title:'Selected Location'
+
                 })
 
             });
@@ -172,4 +278,5 @@
     </script>
 
 </body>
+
 </html>
