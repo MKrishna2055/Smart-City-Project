@@ -8,21 +8,19 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# EXISTING ROUTES
+# HOME PAGE
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
-# =========================
-# ADD THIS NEW MAP ROUTE
-# =========================
-
+# MAP PAGE
 @app.route("/map")
 def map_page():
     return render_template("map.html")
 
 
+# RECEIVE CLICKED LOCATION
 @app.route("/save_location", methods=["POST"])
 def save_location():
 
@@ -31,8 +29,8 @@ def save_location():
     latitude = data.get("latitude")
     longitude = data.get("longitude")
 
-    print(f"Latitude: {latitude}")
-    print(f"Longitude: {longitude}")
+    print("Latitude:", latitude)
+    print("Longitude:", longitude)
 
     return jsonify({
         "status": "success",
@@ -41,10 +39,9 @@ def save_location():
     })
 
 
-# KEEP THIS AT THE VERY END
+# RUN APP
 if __name__ == "__main__":
     app.run(debug=True)
-
 
 # -----------------------------------------------------------------------------
 # File and database paths
