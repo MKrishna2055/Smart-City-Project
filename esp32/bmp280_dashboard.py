@@ -20,7 +20,7 @@ except ImportError:
 WIFI_SSID = "YOUR_WIFI_NAME"
 WIFI_PASSWORD = "YOUR_WIFI_PASSWORD"
 DASHBOARD_URL = "https://YOUR-RENDER-SERVICE.onrender.com/api/esp32/readings"
-SENSOR_API_KEY = "city-bmp280-9Kf7"
+SENSOR_API_KEY = "SET_THE_SAME_SECRET_AS_RENDER"
 
 DEVICE_ID = "esp32-s3-bmp280-01"
 LOCATION = "Smart City sensor node"
