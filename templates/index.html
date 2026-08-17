@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Environmental City Platform</title>
+
+  <!-- Main stylesheet plus Leaflet for the real OpenStreetMap world map. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <!--
+      Sidebar navigation:
+      These are normal HTML anchor links that jump to page sections.
+    -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">SC</div>
+        <h1>Smart Environmental City Platform</h1>
+        <p>Built with Python, HTML, CSS and SQLite.</p>
+      </div>
+
+      <nav class="nav">
+        <a href="#overview">Overview</a>
+        <a href="#map">City Map</a>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#air">Air</a>
+        <a href="#water-quality">Water Quality</a>
+        <a href="#waste">Waste</a>
+        <a href="#games">Games</a>
+        <a href="#complaints">Complaints</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <!--
+        Top section:
+        The reset and SOS controls are HTML forms.
+        When submitted, Flask handles them in app.py.
+      -->
+      <section class="topbar" id="overview">
+        <div>
+          <div class="kicker">Live smart-city dashboard</div>
+          <h2>Environmental intelligence for safer, cleaner cities</h2>
+        </div>
+
+        <div class="top-actions">
+          <form method="post" action="{{ url_for('reset_dashboard') }}">
+            <button class="secondary">Reset Dashboard Readings</button>
+          </form>
+
+          <form method="post" action="{{ url_for('sos') }}">
+            <button class="danger">SOS / Call Police</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Flask shows success/error messages here after form submissions. -->
+      {% if message %}
+        <div class="notice">{{ message }}</div>
+      {% endif %}
+
+      <!--
+        Reset explanation:
+        Pressing reset reloads the page. Choose a real map location to load current weather, AQI, OpenStreetMap bin placement, nearby water bodies, and dashboard cards for that exact place.
+      -->
+      <section class="panel reading-reset">
+        <div>
+          <h3>Reset Dashboard Readings</h3>
+          <p>
+            Last reading cycle: {{ reset_time }}. Choose a real map location to load current weather, AQI, OpenStreetMap bin placement, nearby water bodies, and dashboard cards for that exact place.
+          </p>
+        </div>
+
+        <form method="post" action="{{ url_for('reset_dashboard') }}">
+          <button>Reset All Readings</button>
+        </form>
+      </section>
+
+      <section class="panel sensor-source" aria-labelledby="sensor-source-title">
+        <div>
+          <h3 id="sensor-source-title">Temperature Data Source</h3>
+          <p>Use city weather for the searched map location, or show the latest BMP280 reading posted by your connected ESP32.</p>
+        </div>
+        <div class="sensor-source-controls">
+          <label for="temperatureSource">Display source</label>
+          <select id="temperatureSource">
+            <option value="weather">City weather</option>
+            <option value="esp32">ESP32 BMP280 sensor</option>
+          </select>
+          <span id="esp32SensorStatus" class="sensor-status">Checking ESP32 sensor…</span>
+        </div>
+      </section>
+
+      <!--
+        Real world map:
+        Leaflet + OpenStreetMap provide searchable real locations.
+        Clicking or searching a location reloads the dashboard cards with synced readings.
+      -->
+      <section class="panel map-card real-map-card" id="map">
+        <div class="map-toolbar">
+          <div>
+            <h3>World Map Location Sync</h3>
+            <p>
+              Search or click any real location. Readings update on the dashboard cards below, not as an analysis popup on the map.
+            </p>
+          </div>
+
+          <div class="location-search">
+            <input id="mapSearchInput" type="text" placeholder="Search city, address, or coordinates">
+            <button type="button" onclick="searchWorldLocation()">Search</button>
+          </div>
+        </div>
+
+        <div id="realWorldMap" class="real-world-map"></div>
+      </section>
+      <!-- Main dashboard cards. Values come from city_status() in app.py and update after a map location is selected. -->
+      <section class="metrics" id="dashboard">
+        <div class="metric"><label>Air Quality</label><strong id="metricAirQuality">Select location</strong></div>
+        <div class="metric"><label>Traffic</label><strong id="metricTraffic">No live feed</strong></div>
+        <div class="metric"><label>Temperature</label><strong id="metricTemperature">Select location</strong></div>
+        <div class="metric"><label>Pressure</label><strong id="metricPressure">City weather source</strong></div>
+        <div class="metric"><label>Weather</label><strong id="metricWeather">Select location</strong></div>
+        <div class="metric"><label>Water Quality</label><strong id="metricWaterQuality">Needs water sensor</strong></div>
+        <div class="metric"><label>Algae Risk</label><strong id="metricAlgaeRisk">Needs pond sensor</strong></div>
+        <div class="metric"><label>Pond Health</label><strong id="metricPondHealth">Checking map</strong></div>
+        <div class="metric"><label>Synced Location</label><strong id="metricLocation">{{ status.location_name }}</strong></div>
+      </section>
+
+      <!-- Air pollution and waste readings. -->
+      <section class="modules">
+        <article class="module" id="air">
+          <div class="module-header">
+            <h3>Pollution Level Indicator</h3>
+            <span class="badge" id="airBadge">Live AQI</span>
+          </div>
+
+          <div class="big-number" id="airAqi">Select location</div>
+          <ul class="data-list" id="airAdvice">
+            <li>Click or search a real place on the map to load current AQI.</li>
+          </ul>
+
+          <form method="post" action="{{ url_for('reset_dashboard') }}">
+            <button class="secondary">Reset Pollution Reading</button>
+          </form>
+        </article>
+
+        <article class="module" id="waste">
+          <div class="module-header">
+            <h3>Smart Waste Management</h3>
+            <span class="badge green">SDG 11</span>
+          </div>
+
+          <div class="big-number" id="binCount">Select location</div>
+          <p id="wasteStatus">OpenStreetMap bin/recycling placement loads after a real location is selected.</p>
+          <p><strong>Nearest mapped bin:</strong> <span id="nearestBin">Select location</span></p>
+          <p><strong>Live fill/collection feed:</strong> <span id="collectionEta">Requires municipal API</span></p>
+
+          <form method="post" action="{{ url_for('reset_dashboard') }}">
+            <button class="secondary">Reset Waste Reading</button>
+          </form>
+        </article>
+      </section>
+
+      <!--
+        Water quality section:
+        Left side is manual input. Right side is a random live dashboard reading.
+      -->
+      <section class="module" id="water-quality">
+        <div class="module-header">
+          <h3>Water Quality & Eutrophication Monitoring</h3>
+          <span class="badge blue">Pond intelligence</span>
+        </div>
+
+        <div class="split">
+          <form method="post" action="{{ url_for('water_quality') }}">
+            <label>Water body</label>
+            <input name="location" id="waterLocationInput" value="{% if status.latitude and status.longitude %}{{ status.location_name }}{% endif %}" placeholder="Choose any real map location">
+            <input type="hidden" name="map_lat" id="waterMapLat" value="{{ status.latitude or '' }}">
+            <input type="hidden" name="map_lng" id="waterMapLng" value="{{ status.longitude or '' }}">
+
+            <label>pH level</label>
+            <input name="ph" type="number" step="0.1" value="{{ water_form.ph }}">
+
+            <label>Dissolved oxygen mg/L</label>
+            <input name="oxygen" type="number" step="0.1" value="{{ water_form.oxygen }}">
+
+            <label>Turbidity NTU</label>
+            <input name="turbidity" type="number" step="1" value="{{ water_form.turbidity }}">
+
+            <button>Analyze Water Quality</button>
+          </form>
+
+          <div>
+            <h3>Live Water Dashboard Reading</h3>
+            <ul class="data-list">
+              <li>Status: <span id="waterSensorStatus">Select a real map location</span></li>
+              <li>Nearby mapped water bodies: <span id="nearbyWaterBodies">Select location</span></li>
+              <li>Runoff risk: <span id="waterRunoffRisk">Select location</span></li>
+              <li>Eutrophication watch: <span id="waterEutrophicationWatch">Select location</span></li>
+              <li>pH: <span id="waterPh">Manual/sensor input required</span></li>
+              <li>Dissolved oxygen: <span id="waterOxygen">Manual/sensor input required</span></li>
+              <li>Turbidity: <span id="waterTurbidity">Manual/sensor input required</span></li>
+              <li>Algae risk: <span id="waterAlgaeRisk">Calculated from live map/weather context</span></li>
+            </ul>
+
+            <form method="post" action="{{ url_for('reset_dashboard') }}">
+              <button class="secondary">Reset Water Reading</button>
+            </form>
+
+            <h3>Treatment Library</h3>
+            <ul class="data-list">
+              <li>Neutralisation: acid/base balancing and pH correction</li>
+              <li>Advanced Oxidation Process: ozone and hydrogen peroxide treatment</li>
+              <li>Biological treatment: duckweed, beneficial bacteria, wetland filtration</li>
+              <li>Filtration: activated carbon and membrane filtration</li>
+              <li>Cyanobacteria control: TiO2 photocatalysis, nutrient reduction, oxygenation</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mini games and learning tools. -->
+      <section class="module" id="games">
+        <div class="module-header">
+          <h3>Learning Games and Map Data</h3>
+          <span class="badge">Python forms</span>
+        </div>
+
+        <div class="game-grid">
+          <article class="panel">
+            <h3>Waste Sorting Challenge</h3>
+            <p>Sort this: <strong id="wasteGameItem">{{ current_item }}</strong></p>
+            <p id="wasteGameFeedback">Choose the correct bin.</p>
+
+            <!-- This game stays in the browser so answers do not refresh the page. -->
+            <div class="choice-row waste-game-buttons">
+              <button type="button" data-bin="Recycle">Recycle</button>
+              <button type="button" data-bin="Organic">Organic</button>
+              <button type="button" data-bin="Landfill">Landfill</button>
+            </div>
+
+            <div class="scoreboard">
+              <div><label>Score</label><strong id="wasteScore">0</strong></div>
+              <div><label>Correct</label><strong id="wasteCorrect">0</strong></div>
+              <div><label>Wrong</label><strong id="wasteWrong">0</strong></div>
+              <div><label>Streak</label><strong id="wasteStreak">0</strong></div>
+            </div>
+
+            <button type="button" class="secondary" id="resetWasteScore">Reset Score</button>
+          </article>
+
+          <article class="panel">
+            <h3>Carbon Calculator</h3>
+            <form method="post" action="{{ url_for('carbon') }}">
+              <label>Daily travel km</label>
+              <input name="travel" type="number" value="12">
+
+              <label>Electricity units</label>
+              <input name="power" type="number" value="8">
+
+              <label>Meat meals per week</label>
+              <input name="meals" type="number" value="3">
+
+              <button>Calculate</button>
+            </form>
+          </article>
+
+          <article class="panel">
+            <h3>Real-Time Map Values</h3>
+            <ul class="data-list">
+              <li>Synced location: <span id="mapValueLocation">{{ status.location_name }}</span></li>
+              <li>Coordinates: <span id="mapValueCoords">{% if status.latitude and status.longitude %}{{ status.latitude }}, {{ status.longitude }}{% else %}Select location{% endif %}</span></li>
+              <li>Last live sync: <span id="mapValueUpdated">Waiting for location</span></li>
+              <li>Timezone: <span id="mapValueTimezone">Waiting for location</span></li>
+              <li>Mapped bins/recycling nearby: <span id="mapValueBins">Select location</span></li>
+              <li>Mapped water bodies nearby: <span id="mapValueWater">Select location</span></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <!-- Citizen complaint form and recent SQLite records. -->
+      <section class="module" id="complaints">
+        <div class="module-header">
+          <h3>Citizen Complaint Portal</h3>
+          <span class="badge">SQLite database</span>
+        </div>
+
+        <div class="split">
+          <form method="post" action="{{ url_for('complaint') }}">
+            <label>Report type</label>
+            <select name="complaint_type">
+              {% for key, label in complaint_types.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+
+            <label>Location</label>
+            <input name="location" id="complaintLocationInput" value="{% if status.latitude and status.longitude %}{{ status.location_name }}{% endif %}" placeholder="Choose or search any real world map location">
+
+            <label>Details</label>
+            <textarea name="details" placeholder="Describe what happened"></textarea>
+
+            <button>Submit Report</button>
+          </form>
+
+          <div>
+            <h3>Recent Reports</h3>
+            <div class="reports">
+              {% for report in complaints %}
+                <div class="report">
+                  <strong>#{{ report.id }} {{ report.type_label }}</strong>
+                  <span>{{ report.location }} - {{ report.created_at }}</span>
+                  <span>{{ report.details }}</span>
+                </div>
+              {% else %}
+                <div class="report">
+                  <strong>No reports yet</strong>
+                  <span>Submit the first issue.</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Leaflet powers the real OpenStreetMap dashboard map. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script>
+    const syncedLat = {{ status.latitude|tojson }};
+    const syncedLng = {{ status.longitude|tojson }};
+    const syncedName = {{ status.location_name|tojson }};
+
+    const startLat = syncedLat ? Number(syncedLat) : 20;
+    const startLng = syncedLng ? Number(syncedLng) : 0;
+    const startZoom = syncedLat && syncedLng ? 12 : 2;
+    const worldMap = L.map('realWorldMap').setView([startLat, startLng], startZoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+      minZoom: 2
+    }).addTo(worldMap);
+
+    let currentMarker = null;
+    let latestWeatherContext = null;
+    let temperatureSource = localStorage.getItem('temperatureSource') || 'weather';
+
+    function setText(id, value) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    }
+
+    function setValue(id, value) {
+      const element = document.getElementById(id);
+      if (element) element.value = value;
+    }
+
+    function setEsp32Status(message) {
+      setText('esp32SensorStatus', message);
+    }
+
+    function showCityWeatherSource() {
+      setText('metricPressure', 'City weather source');
+      setEsp32Status('City weather is selected. ESP32 readings are still stored when received.');
+    }
+
+    function showEsp32Reading(reading) {
+      setText('metricTemperature', `${Number(reading.temperature).toFixed(1)}°C`);
+      setText('metricPressure', `${Number(reading.pressure).toFixed(1)} hPa`);
+      setText('metricWeather', 'ESP32 BMP280');
+      setEsp32Status(`Live reading from ${reading.device_id} at ${reading.location || 'ESP32 sensor'} · ${reading.created_at}`);
+    }
+
+    async function refreshEsp32Reading() {
+      try {
+        const response = await fetch('/api/esp32/latest', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Sensor API unavailable');
+        const data = await response.json();
+
+        if (!data.connected || !data.reading) {
+          setEsp32Status('No ESP32 reading received yet. Keep city weather selected until the board posts a reading.');
+          if (temperatureSource === 'esp32') {
+            setText('metricTemperature', 'Waiting for ESP32');
+            setText('metricPressure', 'Waiting for ESP32');
+            setText('metricWeather', 'ESP32 offline');
+          }
+          return;
+        }
+
+        if (temperatureSource === 'esp32') showEsp32Reading(data.reading);
+        else showCityWeatherSource();
+      } catch (error) {
+        setEsp32Status('ESP32 sensor status is unavailable.');
+        if (temperatureSource === 'esp32') {
+          setText('metricTemperature', 'ESP32 unavailable');
+          setText('metricPressure', 'ESP32 unavailable');
+          setText('metricWeather', 'ESP32 unavailable');
+        }
+      }
+    }
+
+    function selectTemperatureSource(source) {
+      temperatureSource = source;
+      localStorage.setItem('temperatureSource', source);
+      refreshEsp32Reading();
+
+      if (source === 'weather' && syncedLat && syncedLng) {
+        loadWeatherAndAqi(Number(syncedLat), Number(syncedLng));
+      } else if (source === 'weather') {
+        setText('metricTemperature', 'Select location');
+        setText('metricWeather', 'Select location');
+      }
+    }
+
+    // Marker is only a visual pin. Readings appear on the dashboard, not in a popup.
+    function showSelectedMarker(lat, lng) {
+      if (currentMarker) worldMap.removeLayer(currentMarker);
+      currentMarker = L.marker([lat, lng]).addTo(worldMap);
+    }
+
+    function weatherLabel(code) {
+      if (code === 0) return 'Clear';
+      if ([1, 2].includes(code)) return 'Partly cloudy';
+      if (code === 3) return 'Cloudy';
+      if ([45, 48].includes(code)) return 'Foggy';
+      if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle';
+      if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rainy';
+      if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snowy';
+      if ([95, 96, 99].includes(code)) return 'Thunderstorm';
+      return 'Weather unavailable';
+    }
+
+    function aqiLabel(aqi) {
+      if (aqi === null || aqi === undefined || Number.isNaN(aqi)) return 'AQI unavailable';
+      if (aqi <= 50) return `Good (US AQI ${aqi})`;
+      if (aqi <= 100) return `Moderate (US AQI ${aqi})`;
+      if (aqi <= 150) return `Unhealthy for sensitive groups (US AQI ${aqi})`;
+      if (aqi <= 200) return `Unhealthy (US AQI ${aqi})`;
+      if (aqi <= 300) return `Very unhealthy (US AQI ${aqi})`;
+      return `Hazardous (US AQI ${aqi})`;
+    }
+
+    function airAdvice(aqi) {
+      if (aqi === null || aqi === undefined || Number.isNaN(aqi)) {
+        return ['Current AQI is unavailable for this coordinate.'];
+      }
+      if (aqi <= 50) return ['Current air quality is good.', 'Normal outdoor activity is suitable.'];
+      if (aqi <= 100) return ['Current air quality is moderate.', 'Sensitive groups should watch symptoms.'];
+      if (aqi <= 150) return ['Sensitive groups should reduce prolonged outdoor activity.'];
+      return ['Limit outdoor activity.', 'Consider masks or indoor air filtration.'];
+    }
+
+    function updateAirAdvice(items) {
+      const list = document.getElementById('airAdvice');
+      list.innerHTML = '';
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        list.appendChild(li);
+      });
+    }
+
+    function distanceMeters(lat1, lng1, lat2, lng2) {
+      const r = 6371000;
+      const toRad = value => value * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      return Math.round(r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    }
+
+    function elementLatLng(item) {
+      return {
+        lat: item.lat ?? item.center?.lat,
+        lng: item.lon ?? item.center?.lon
+      };
+    }
+
+    async function fetchOverpass(query) {
+      const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error('OpenStreetMap feature lookup failed');
+      return response.json();
+    }
+
+    async function loadWeatherAndAqi(lat, lng) {
+      if (temperatureSource === 'weather') {
+        setText('metricTemperature', 'Loading...');
+        setText('metricWeather', 'Loading...');
+      }
+      setText('metricAirQuality', 'Loading...');
+      setText('airAqi', 'Loading AQI');
+
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,is_day,wind_speed_10m,precipitation&timezone=auto`;
+      const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone`;
+      const [weatherResult, airResult] = await Promise.allSettled([
+        fetch(weatherUrl).then(response => response.json()),
+        fetch(airUrl).then(response => response.json())
+      ]);
+
+      if (weatherResult.status === 'fulfilled' && weatherResult.value.current) {
+        const current = weatherResult.value.current;
+        const condition = weatherLabel(current.weather_code);
+        if (temperatureSource === 'weather') {
+        setText('metricTemperature', `${Math.round(current.temperature_2m)}°C`);
+        setText('metricWeather', condition);
+        }
+        setText('mapValueTimezone', weatherResult.value.timezone || 'Timezone unavailable');
+        setText('mapValueUpdated', current.time ? `${current.time} local` : new Date().toLocaleString());
+      } else if (temperatureSource === 'weather') {
+        setText('metricTemperature', 'Unavailable');
+        setText('metricWeather', 'Unavailable');
+      }
+
+      if (airResult.status === 'fulfilled' && airResult.value.current) {
+        const current = airResult.value.current;
+        const aqi = Math.round(current.us_aqi);
+        const label = aqiLabel(aqi);
+        setText('metricAirQuality', label);
+        setText('airAqi', `AQI ${aqi}`);
+        updateAirAdvice([
+          ...airAdvice(aqi),
+          `PM2.5: ${Math.round(current.pm2_5 ?? 0)} µg/m³`,
+          `PM10: ${Math.round(current.pm10 ?? 0)} µg/m³`
+        ]);
+      } else {
+        setText('metricAirQuality', 'Unavailable');
+        setText('airAqi', 'AQI unavailable');
+        updateAirAdvice(['Current AQI could not be loaded for this coordinate.']);
+      }
+    }
+
+    async function loadMapFeatures(lat, lng) {
+      setText('binCount', 'Loading');
+      setText('nearestBin', 'Loading...');
+      setText('nearbyWaterBodies', 'Loading...');
+      setText('metricPondHealth', 'Checking map');
+
+      const binQuery = `[out:json][timeout:25];(node(around:1200,${lat},${lng})["amenity"~"waste_basket|recycling|waste_disposal"];way(around:1200,${lat},${lng})["amenity"~"waste_basket|recycling|waste_disposal"];);out center 40;`;
+      const waterQuery = `[out:json][timeout:25];(node(around:2000,${lat},${lng})["natural"="water"];way(around:2000,${lat},${lng})["natural"="water"];relation(around:2000,${lat},${lng})["natural"="water"];way(around:2000,${lat},${lng})["water"];relation(around:2000,${lat},${lng})["water"];);out center 30;`;
+      const [binResult, waterResult] = await Promise.allSettled([
+        fetchOverpass(binQuery),
+        fetchOverpass(waterQuery)
+      ]);
+
+      if (binResult.status === 'fulfilled') {
+        const bins = binResult.value.elements || [];
+        setText('binCount', `${bins.length} mapped`);
+        setText('mapValueBins', `${bins.length}`);
+        if (bins.length) {
+          const nearest = bins
+            .map(item => ({ item, ...elementLatLng(item) }))
+            .filter(item => item.lat && item.lng)
+            .map(item => ({ ...item, distance: distanceMeters(lat, lng, item.lat, item.lng) }))
+            .sort((a, b) => a.distance - b.distance)[0];
+          const name = nearest?.item.tags?.name || nearest?.item.tags?.amenity || 'mapped bin/recycling point';
+          setText('nearestBin', `${name} (${nearest.distance} m away)`);
+          setText('wasteStatus', 'Loaded real OpenStreetMap bin/recycling placement near this location.');
+        } else {
+          setText('nearestBin', 'No mapped bin/recycling point found within 1.2 km');
+          setText('wasteStatus', 'No OpenStreetMap bin/recycling placement is mapped near this location.');
+        }
+        setText('collectionEta', 'Requires municipal live collection API');
+      } else {
+        setText('binCount', 'Unavailable');
+        setText('nearestBin', 'OpenStreetMap lookup unavailable');
+        setText('mapValueBins', 'Unavailable');
+      }
+
+      if (waterResult.status === 'fulfilled') {
+        const waterBodies = waterResult.value.elements || [];
+        setText('nearbyWaterBodies', `${waterBodies.length} mapped within 2 km`);
+        setText('mapValueWater', `${waterBodies.length}`);
+        updateWaterAnalysis(waterBodies.length);
+      } else {
+        setText('nearbyWaterBodies', 'OpenStreetMap lookup unavailable');
+        setText('metricPondHealth', 'Water lookup unavailable');
+        setText('mapValueWater', 'Unavailable');
+        setText('waterSensorStatus', 'OpenStreetMap water lookup unavailable for this location.');
+        setText('waterRunoffRisk', 'Unavailable');
+        setText('waterEutrophicationWatch', 'Unavailable');
+      }
+    }
+
+    async function reverseGeocode(lat, lng) {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+      const result = await fetch(url).then(response => response.json());
+      return result.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+
+    function syncDashboardLocation(lat, lng, title) {
+      const params = new URLSearchParams({
+        location: title,
+        map_lat: lat.toFixed(6),
+        map_lng: lng.toFixed(6)
+      });
+      window.location.href = `/?${params.toString()}#dashboard`;
+    }
+
+    async function selectRealLocation(lat, lng, title) {
+      const locationName = title || await reverseGeocode(lat, lng);
+      syncDashboardLocation(lat, lng, locationName);
+    }
+
+    worldMap.on('click', async function(event) {
+      const lat = event.latlng.lat;
+      const lng = event.latlng.lng;
+      const locationName = await reverseGeocode(lat, lng).catch(() => `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      selectRealLocation(lat, lng, locationName);
+    });
+
+    async function searchWorldLocation() {
+      const query = document.getElementById('mapSearchInput').value.trim();
+      if (!query) return;
+
+      const coordMatch = query.match(/^(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)$/);
+      if (coordMatch) {
+        const lat = Number(coordMatch[1]);
+        const lng = Number(coordMatch[2]);
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          const locationName = await reverseGeocode(lat, lng).catch(() => `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+          selectRealLocation(lat, lng, locationName);
+          return;
+        }
+      }
+
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(results => {
+          if (!results.length) {
+            alert('Location not found. Try a real city, address, landmark, or coordinates.');
+            return;
+          }
+          const result = results[0];
+          selectRealLocation(Number(result.lat), Number(result.lon), result.display_name);
+        })
+        .catch(() => alert('Error searching. Please check your connection.'));
+    }
+
+    document.getElementById('mapSearchInput').addEventListener('keypress', function(event) {
+      if (event.key === 'Enter') searchWorldLocation();
+    });
+
+
+    const wasteItems = {{ waste_items|tojson }};
+    let wasteGameIndex = Math.max(0, wasteItems.findIndex(item => item[0] === {{ current_item|tojson }}));
+    let wasteScore = 0;
+    let wasteCorrect = 0;
+    let wasteWrong = 0;
+    let wasteStreak = 0;
+
+    function updateWasteScoreboard() {
+      setText('wasteScore', String(wasteScore));
+      setText('wasteCorrect', String(wasteCorrect));
+      setText('wasteWrong', String(wasteWrong));
+      setText('wasteStreak', String(wasteStreak));
+    }
+
+    function showWasteItem() {
+      if (!wasteItems.length) return;
+      setText('wasteGameItem', wasteItems[wasteGameIndex][0]);
+    }
+
+    function nextWasteItem() {
+      wasteGameIndex = (wasteGameIndex + 1) % wasteItems.length;
+      showWasteItem();
+    }
+
+    function answerWasteGame(choice) {
+      const item = wasteItems[wasteGameIndex];
+      const itemName = item[0];
+      const correctBin = item[1];
+      if (choice === correctBin) {
+        wasteScore += 10;
+        wasteCorrect += 1;
+        wasteStreak += 1;
+        setText('wasteGameFeedback', `Correct. ${itemName} belongs in ${correctBin}.`);
+      } else {
+        wasteWrong += 1;
+        wasteStreak = 0;
+        setText('wasteGameFeedback', `Wrong. ${itemName} belongs in ${correctBin}.`);
+      }
+      updateWasteScoreboard();
+      nextWasteItem();
+    }
+
+    document.querySelectorAll('.waste-game-buttons button').forEach(button => {
+      button.addEventListener('click', () => answerWasteGame(button.dataset.bin));
+    });
+
+    document.getElementById('resetWasteScore').addEventListener('click', () => {
+      wasteScore = 0;
+      wasteCorrect = 0;
+      wasteWrong = 0;
+      wasteStreak = 0;
+      setText('wasteGameFeedback', 'Choose the correct bin.');
+      updateWasteScoreboard();
+    });
+
+    updateWasteScoreboard();
+    showWasteItem();
+
+    const temperatureSourceSelect = document.getElementById('temperatureSource');
+    temperatureSourceSelect.value = temperatureSource;
+    temperatureSourceSelect.addEventListener('change', event => {
+      selectTemperatureSource(event.target.value);
+    });
+    refreshEsp32Reading();
+    setInterval(refreshEsp32Reading, 30000);
+
+    if (syncedLat && syncedLng) {
+      showSelectedMarker(startLat, startLng);
+      setText('metricLocation', syncedName);
+      setText('mapValueLocation', syncedName);
+      setText('mapValueCoords', `${Number(syncedLat).toFixed(6)}, ${Number(syncedLng).toFixed(6)}`);
+      setValue('complaintLocationInput', syncedName);
+      setValue('waterLocationInput', syncedName);
+      setValue('waterMapLat', Number(syncedLat).toFixed(6));
+      setValue('waterMapLng', Number(syncedLng).toFixed(6));
+      loadWeatherAndAqi(startLat, startLng).finally(() => loadMapFeatures(startLat, startLng));
+    }
+  </script>
+</body>
+</html>
