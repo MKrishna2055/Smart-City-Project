@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: smart-city-app
+    runtime: python-3.14
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir / app:app --bind 0.0.0.0:$PORT
